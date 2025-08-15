@@ -46,3 +46,21 @@ else:
         .properties(height=420, title=f"Expenses for {selected_month}")
     )
     st.altair_chart(chart, use_container_width=True)
+
+    st.markdown("### Thresholds")
+    for cat in selected:
+        st.number_input(
+            f"{cat} threshold",
+            value=0.0,
+            step=10.0,
+            key=f"th_{selected_month}_{cat}",
+        )
+    df_month["threshold"] = df_month["category"].map(
+        lambda c: st.session_state.get(f"th_{selected_month}_{c}", 0.0)
+    )
+    df_month["over"] = df_month["total"] > df_month["threshold"]
+    st.dataframe(
+        df_month[["category", "total", "threshold", "over"]],
+        use_container_width=True,
+        hide_index=True,
+    )
