@@ -6,6 +6,7 @@ from core.rules import (
     apply_rules_to_all,
     apply_rule_to_all_transactions,
 )
+from core import gdrive
 
 st.title("Categories & Rules")
 
@@ -24,6 +25,28 @@ with get_session() as s:
         ]
     )
     st.dataframe(df, use_container_width=True, hide_index=True)
+
+    c_up, c_down = st.columns(2)
+    if c_up.button("Upload Categories to Drive"):
+        gdrive.upload_df(df, "categories.csv")
+        st.success("Categories uploaded to Google Drive")
+    if c_down.button("Download Categories from Drive"):
+        drive_df = gdrive.download_df("categories.csv")
+        if drive_df is None:
+            st.error("categories.csv not found on Drive")
+        else:
+            with get_session() as s:
+                for _, r in drive_df.iterrows():
+                    name = str(r.get("name", "")).strip()
+                    if not name:
+                        continue
+                    c = s.query(Category).filter(Category.name == name).one_or_none()
+                    if not c:
+                        c = Category(name=name)
+                        s.add(c)
+                    c.description = r.get("description")
+                    c.is_active = bool(r.get("active", True))
+            st.success("Categories imported from Drive")
 
 with st.expander("Add / Update Category"):
     name = st.text_input("Name")
@@ -111,6 +134,31 @@ with get_session() as s:
         ]
     )
     st.dataframe(df, use_container_width=True, hide_index=True)
+
+    r_up, r_down = st.columns(2)
+    if r_up.button("Upload Rules to Drive"):
+        gdrive.upload_df(df, "rules.csv")
+        st.success("Rules uploaded to Google Drive")
+    if r_down.button("Download Rules from Drive"):
+        drive_df = gdrive.download_df("rules.csv")
+        if drive_df is None:
+            st.error("rules.csv not found on Drive")
+        else:
+            with get_session() as s:
+                for _, r in drive_df.iterrows():
+                    rid = r.get("id")
+                    rule = s.get(Rule, int(rid)) if pd.notna(rid) else None
+                    if not rule:
+                        rule = Rule()
+                        s.add(rule)
+                    rule.category_id = int(r.get("category_id")) if pd.notna(r.get("category_id")) else None
+                    rule.field = r.get("field")
+                    rule.match_type = r.get("type")
+                    rule.pattern = r.get("pattern")
+                    rule.amount_min = r.get("amount_min") if pd.notna(r.get("amount_min")) else None
+                    rule.amount_max = r.get("amount_max") if pd.notna(r.get("amount_max")) else None
+                    rule.enabled = bool(r.get("enabled", True))
+            st.success("Rules imported from Drive")
 
 with st.expander("Add Rule"):
     with get_session() as s:

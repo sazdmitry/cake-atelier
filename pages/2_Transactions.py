@@ -1,12 +1,14 @@
 import streamlit as st
 import pandas as pd
 from sqlalchemy import select
+import io
 from core.ingestion import ingest_csv
 from core.rules import apply_rules_to_uncategorized
 from core.categorize import set_category_manual, create_rule_from_tx
 from core.queries import fetch_transactions, categories_list
 from core.db import get_session
 from core.models import Transaction, Assignment, Category
+from core import gdrive
 
 st.title("Transactions")
 
@@ -55,6 +57,23 @@ else:
         'category': (c.name if c else None)
     } for (t, a, c) in rows])
     st.dataframe(df, use_container_width=True, hide_index=True)
+
+    up_col, down_col = st.columns(2)
+    if up_col.button("Upload to Drive"):
+        gdrive.upload_df(df, "transactions.csv")
+        st.success("Uploaded transactions to Google Drive")
+    if down_col.button("Download from Drive"):
+        drive_df = gdrive.download_df("transactions.csv")
+        if drive_df is None:
+            st.error("transactions.csv not found on Drive")
+        else:
+            buf = io.StringIO()
+            drive_df.to_csv(buf, index=False)
+            buf.seek(0)
+            rows_in, rows_skip = ingest_csv(buf, batch_name="drive_transactions.csv")
+            st.success(f"Ingested {rows_in} rows, skipped {rows_skip} duplicates.")
+            apply_rules_to_uncategorized()
+            st.info("Applied rules to uncategorized transactions.")
 
     st.markdown("#### Quick edit")
     tx_ids_str = st.text_input("Transaction IDs (comma separated) to set category")
