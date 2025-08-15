@@ -28,13 +28,21 @@ with get_session() as s:
 
     c_up, c_down = st.columns(2)
     if c_up.button("Upload Categories to Drive"):
-        gdrive.upload_df(df, "categories.csv")
+        export_map = {
+            "id": "ID",
+            "name": "Name",
+            "description": "Description",
+            "active": "Active",
+        }
+        gdrive.upload_df(df.rename(columns=export_map), "categories.csv")
         st.success("Categories uploaded to Google Drive")
     if c_down.button("Download Categories from Drive"):
         drive_df = gdrive.download_df("categories.csv")
         if drive_df is None:
             st.error("categories.csv not found on Drive")
         else:
+            rev_map = {"ID": "id", "Name": "name", "Description": "description", "Active": "active"}
+            drive_df = drive_df.rename(columns=rev_map)
             with get_session() as s:
                 for _, r in drive_df.iterrows():
                     name = str(r.get("name", "")).strip()
@@ -137,13 +145,36 @@ with get_session() as s:
 
     r_up, r_down = st.columns(2)
     if r_up.button("Upload Rules to Drive"):
-        gdrive.upload_df(df, "rules.csv")
+        export_map = {
+            "id": "ID",
+            "category_id": "Category ID",
+            "category": "Category",
+            "field": "Field",
+            "type": "Type",
+            "pattern": "Pattern",
+            "amount_min": "Amount Min",
+            "amount_max": "Amount Max",
+            "enabled": "Enabled",
+        }
+        gdrive.upload_df(df.rename(columns=export_map), "rules.csv")
         st.success("Rules uploaded to Google Drive")
     if r_down.button("Download Rules from Drive"):
         drive_df = gdrive.download_df("rules.csv")
         if drive_df is None:
             st.error("rules.csv not found on Drive")
         else:
+            rev_map = {
+                "ID": "id",
+                "Category ID": "category_id",
+                "Category": "category",
+                "Field": "field",
+                "Type": "type",
+                "Pattern": "pattern",
+                "Amount Min": "amount_min",
+                "Amount Max": "amount_max",
+                "Enabled": "enabled",
+            }
+            drive_df = drive_df.rename(columns=rev_map)
             with get_session() as s:
                 for _, r in drive_df.iterrows():
                     rid = r.get("id")

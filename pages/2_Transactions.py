@@ -60,7 +60,15 @@ else:
 
     up_col, down_col = st.columns(2)
     if up_col.button("Upload to Drive"):
-        gdrive.upload_df(df, "transactions.csv")
+        export_map = {
+            'id': 'ID',
+            'date': 'Completed date',
+            'counterparty': 'Counterparty name',
+            'reference': 'Reference',
+            'amount': 'Amount',
+            'category': 'Category',
+        }
+        gdrive.upload_df(df.rename(columns=export_map), "transactions.csv")
         st.success("Uploaded transactions to Google Drive")
     if down_col.button("Download from Drive"):
         drive_df = gdrive.download_df("transactions.csv")
