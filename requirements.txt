@@ -1,0 +1,10 @@
+streamlit==1.36.0
+pandas>=2.2
+numpy>=1.24.0
+plotly>=5.22.0
+scikit-learn>=1.2.0
+SQLAlchemy>=2.0
+python-dateutil>=2.9
+rapidfuzz>=3.9
+altair>=5.3
+openpyxl>=3.1
