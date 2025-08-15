@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from pathlib import Path
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 import os
 
@@ -18,7 +18,18 @@ def init_engine_and_create():
     _engine = create_engine(f"sqlite:///{DB_PATH}", future=True)
     from .models import Base as MBase  # noqa
     MBase.metadata.create_all(_engine)
+    upgrade_schema_if_needed(_engine)
     _Session = sessionmaker(_engine, expire_on_commit=False, future=True)
+
+
+def upgrade_schema_if_needed(engine):
+    """Apply simple in-place upgrades for existing SQLite DBs."""
+    with engine.begin() as conn:
+        existing_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(rules)"))}
+        if "amount_min" not in existing_cols:
+            conn.execute(text("ALTER TABLE rules ADD COLUMN amount_min FLOAT"))
+        if "amount_max" not in existing_cols:
+            conn.execute(text("ALTER TABLE rules ADD COLUMN amount_max FLOAT"))
 
 def ensure_db():
     global _engine
