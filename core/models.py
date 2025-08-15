@@ -34,6 +34,8 @@ class Rule(Base):
     field: Mapped[str] = mapped_column(String(20))  # 'counterparty' | 'reference'
     match_type: Mapped[str] = mapped_column(String(20))  # 'exact' | 'contains' | 'regex' | 'fuzzy'
     pattern: Mapped[str] = mapped_column(Text)
+    amount_min: Mapped[float | None] = mapped_column(Float, nullable=True)
+    amount_max: Mapped[float | None] = mapped_column(Float, nullable=True)
     priority: Mapped[int] = mapped_column(Integer, default=100)
     case_sensitive: Mapped[bool] = mapped_column(Boolean, default=False)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
