@@ -67,15 +67,26 @@ if file is not None and st.button("Import & Seed Rules"):
                 if providers:
                     for p in [x.strip() for x in providers.split(',') if x.strip()]:
                         # create 'contains' rule on counterparty
-                        s.add(
-                            Rule(
-                                category_id=c.id,
-                                field="counterparty",
-                                match_type="contains",
-                                pattern=p,
+                        existing = (
+                            s.query(Rule)
+                            .filter(
+                                Rule.category_id == c.id,
+                                Rule.field == "counterparty",
+                                Rule.match_type == "contains",
+                                Rule.pattern == p,
                             )
+                            .one_or_none()
                         )
-                        added_rules += 1
+                        if not existing:
+                            s.add(
+                                Rule(
+                                    category_id=c.id,
+                                    field="counterparty",
+                                    match_type="contains",
+                                    pattern=p,
+                                )
+                            )
+                            added_rules += 1
         st.success(f"Imported. Added categories: {added_cats}, rules: {added_rules}")
         st.info("Go to Transactions → Re-apply rules (ingest a CSV first).")
 
@@ -92,6 +103,8 @@ with get_session() as s:
                 "field": r.field,
                 "type": r.match_type,
                 "pattern": r.pattern,
+                "amount_min": r.amount_min,
+                "amount_max": r.amount_max,
                 "enabled": r.enabled,
             }
             for r in rules
@@ -106,15 +119,47 @@ with st.expander("Add Rule"):
     field = st.selectbox("Field", options=['counterparty', 'reference'])
     mtype = st.selectbox("Match type", options=['contains', 'exact', 'regex', 'fuzzy'])
     pattern = st.text_input("Pattern")
+    amt_min = st.text_input("Min Amount (optional)")
+    amt_max = st.text_input("Max Amount (optional)")
     if st.button("Save Rule"):
         with get_session() as s:
             c = s.query(Category).filter(Category.name == cat_name).one_or_none()
             if not c:
                 st.error("Category not found")
             else:
-                from core.models import Rule
-                s.add(Rule(category_id=c.id, field=field, match_type=mtype, pattern=pattern))
+                s.add(
+                    Rule(
+                        category_id=c.id,
+                        field=field,
+                        match_type=mtype,
+                        pattern=pattern,
+                        amount_min=float(amt_min) if amt_min else None,
+                        amount_max=float(amt_max) if amt_max else None,
+                    )
+                )
                 st.success("Rule added")
+
+with st.expander("Edit / Delete Rule"):
+    with get_session() as s:
+        rule_opts = {
+            f"#{r.id} {r.field}:{r.pattern}": r.id
+            for r in s.query(Rule).order_by(Rule.id.asc()).all()
+        }
+    if rule_opts:
+        sel = st.selectbox("Rule", options=list(rule_opts.keys()))
+        rule_id = rule_opts[sel]
+        with get_session() as s:
+            rule = s.get(Rule, rule_id)
+            enabled = st.checkbox("Enabled", value=rule.enabled, key=f"rule_enabled_{rule_id}")
+            c1, c2 = st.columns(2)
+            if c1.button("Save", key=f"rule_save_{rule_id}"):
+                rule.enabled = enabled
+                st.success("Rule updated")
+            if c2.button("Delete", key=f"rule_delete_{rule_id}"):
+                s.delete(rule)
+                st.success("Rule deleted")
+    else:
+        st.info("No rules defined")
 
 st.markdown(
     """
@@ -124,7 +169,6 @@ st.markdown(
     * *exact* – field must exactly match the pattern
     * *regex* – pattern is a regular expression
     * *fuzzy* – allows minor differences
-* To disable a rule set its `enabled` flag to `False` in the database.
 * Example: pattern `Uber` with match type `contains` matches any counterparty containing "Uber".
     """
 )

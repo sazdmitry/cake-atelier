@@ -38,6 +38,10 @@ def choose_category_for(tx: Transaction, rules: Iterable[Rule]) -> Optional[tupl
         [r for r in rules if r.enabled], key=lambda r: order.get(r.match_type, 9)
     )
     for r in sorted_rules:
+        if r.amount_min is not None and tx.amount < r.amount_min:
+            continue
+        if r.amount_max is not None and tx.amount > r.amount_max:
+            continue
         value = _field_value(tx, r.field)
         if not value:
             continue
@@ -107,6 +111,10 @@ def apply_rule_to_all_transactions(rule_id: int):
         count = 0
         for tx in txs:
             if tx.is_income:
+                continue
+            if rule.amount_min is not None and tx.amount < rule.amount_min:
+                continue
+            if rule.amount_max is not None and tx.amount > rule.amount_max:
                 continue
             value = _field_value(tx, rule.field)
             if not value:
