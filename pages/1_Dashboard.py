@@ -1,28 +1,48 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
-from core.queries import monthly_expense_by_category, categories_list
+from core.queries import monthly_expense_by_category
 
 st.title("Dashboard")
 
-# Filters
-categories = categories_list(active_only=True)
-cat_name_to_id = {c.name: c.id for c in categories}
-selected = st.multiselect("Categories to show", options=list(cat_name_to_id.keys()), default=list(cat_name_to_id.keys()))
-include_income = st.checkbox("Include Income/Refunds (positive amounts)", value=False)
-
-rows = monthly_expense_by_category(
-    category_ids=[cat_name_to_id[name] for name in selected] if selected else None,
-    include_income=include_income
+include_income = st.checkbox(
+    "Include Income/Refunds (positive amounts)", value=False
 )
+
+rows = monthly_expense_by_category(include_income=include_income)
 if not rows:
     st.info("No data yet. Upload CSV on the Transactions page.")
 else:
-    df = pd.DataFrame([{'month': r[0], 'category': r[1] or 'Uncategorized', 'total': r[2]} for r in rows])
-    chart = alt.Chart(df).mark_bar().encode(
-        x='month:O',
-        y='sum(total):Q',
-        color='category:N',
-        tooltip=['month', 'category', 'total']
-    ).properties(height=420)
+    df = pd.DataFrame(
+        [
+            {
+                "month": r[0],
+                "category": r[1] or "Uncategorized",
+                "total": r[2],
+            }
+            for r in rows
+        ]
+    )
+    months = sorted(df["month"].unique())
+    selected_month = st.selectbox(
+        "Month", options=months, index=len(months) - 1
+    )
+    df_month = df[df["month"] == selected_month]
+    categories = sorted(df_month["category"].unique())
+    selected = st.multiselect(
+        "Categories to show", options=categories, default=categories
+    )
+    df_month = df_month[df_month["category"].isin(selected)]
+    df_month = df_month.sort_values("total", ascending=False)
+    chart = (
+        alt.Chart(df_month)
+        .mark_bar()
+        .encode(
+            x=alt.X("category:N", sort="-y"),
+            y=alt.Y("total:Q"),
+            color="category:N",
+            tooltip=["category", "total"],
+        )
+        .properties(height=420, title=f"Expenses for {selected_month}")
+    )
     st.altair_chart(chart, use_container_width=True)
