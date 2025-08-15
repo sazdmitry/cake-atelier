@@ -22,7 +22,7 @@ def create_rule_from_tx(tx_id: int, category_id: int, match_type='contains', fie
         pattern = (tx.counterparty or '').strip()
         if field == 'reference':
             pattern = (tx.reference or '').strip()
-        r = Rule(category_id=category_id, field=field, match_type=match_type, pattern=pattern, priority=100)
+        r = Rule(category_id=category_id, field=field, match_type=match_type, pattern=pattern)
         s.add(r)
         s.flush()
         return r.id

@@ -33,10 +33,10 @@ def match_rule(rule: Rule, value: str) -> bool:
     return False
 
 def choose_category_for(tx: Transaction, rules: Iterable[Rule]) -> Optional[tuple[int, int | None]]:
-    # Priority order: exact > contains > regex > fuzzy, within that by rule.priority asc
-    order = {'exact':0, 'contains':1, 'regex':2, 'fuzzy':3}
-    sorted_rules = sorted([r for r in rules if r.enabled],
-                          key=lambda r: (order.get(r.match_type, 9), r.priority))
+    order = {'exact': 0, 'contains': 1, 'regex': 2, 'fuzzy': 3}
+    sorted_rules = sorted(
+        [r for r in rules if r.enabled], key=lambda r: order.get(r.match_type, 9)
+    )
     for r in sorted_rules:
         value = _field_value(tx, r.field)
         if not value:
@@ -67,3 +67,64 @@ def apply_rules_to_uncategorized():
                 s.add(a)
                 changed += 1
     return True
+
+
+def apply_rules_to_all():
+    with get_session() as s:
+        rules = s.scalars(select(Rule)).all()
+        txs = s.scalars(select(Transaction)).all()
+        changed = 0
+        for tx in txs:
+            if tx.is_income:
+                continue
+            result = choose_category_for(tx, rules)
+            if result:
+                cat_id, rule_id = result
+                a = s.scalar(select(Assignment).where(Assignment.transaction_id == tx.id))
+                if a:
+                    a.category_id = cat_id
+                    a.source = 'rule'
+                    a.rule_id = rule_id
+                else:
+                    s.add(
+                        Assignment(
+                            transaction_id=tx.id,
+                            category_id=cat_id,
+                            source='rule',
+                            rule_id=rule_id,
+                        )
+                    )
+                changed += 1
+        return changed
+
+
+def apply_rule_to_all_transactions(rule_id: int):
+    with get_session() as s:
+        rule = s.get(Rule, rule_id)
+        if not rule:
+            return 0
+        txs = s.scalars(select(Transaction)).all()
+        count = 0
+        for tx in txs:
+            if tx.is_income:
+                continue
+            value = _field_value(tx, rule.field)
+            if not value:
+                continue
+            if match_rule(rule, value):
+                a = s.scalar(select(Assignment).where(Assignment.transaction_id == tx.id))
+                if a:
+                    a.category_id = rule.category_id
+                    a.source = 'rule'
+                    a.rule_id = rule.id
+                else:
+                    s.add(
+                        Assignment(
+                            transaction_id=tx.id,
+                            category_id=rule.category_id,
+                            source='rule',
+                            rule_id=rule.id,
+                        )
+                    )
+                count += 1
+        return count
