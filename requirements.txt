@@ -10,3 +10,5 @@ altair>=5.3
 openpyxl>=3.1
 google-api-python-client>=2.100
 google-auth>=2.20
+pyyaml==6.0.2
+google_auth_oauthlib==1.2.2
